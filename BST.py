@@ -1,107 +1,89 @@
+import inspect
+
 class Node:
     def __init__(self, value):
-        # Initialize a new node with a value
-        self.value = value        # The data stored in this node
-        self.left = None          # Pointer to left child
-        self.right = None         # Pointer to right child
+        self.value = value
+        self.left = None
+        self.right = None
 
 class BinarySearchTree:
     def __init__(self):
-        # Initialize the tree with an empty root
         self.root = None
 
     def insert(self, value):
-        # Public method to insert a value into the BST
+        self.root = self._insert(self.root, value)
 
-        def _insert(node):
-            # Recursive helper to insert at the correct position
-            if node is None:
-                return Node(value)  # Create new node if spot is empty
+    def _insert(self, node, value):
+        # Detect external call: only warn if not called from inside this class
+        caller_frame = inspect.stack()[1]
+        caller_self = caller_frame.frame.f_locals.get('self')
+        if not isinstance(caller_self, BinarySearchTree):
+            print(f"⚠️ _insert called from outside the class (via '{caller_frame.function}')")
 
-            # Decide whether to go left, right, or do nothing
-            key = self._get_direction(node, value)
+        if node is None:
+            return Node(value)
 
-            # Dispatch to the correct handler based on key
-            return self.dispatch_insert()[key](node, value, _insert)
-
-        # Start recursion from root and update root if it was None
-        self.root = _insert(self.root)
-
-    def search(self, value):
-        # Public method to search for a value in the BST
-
-        def _search(node):
-            if node is None:
-                return False  # Reached leaf — not found
-
-            key = self._get_direction(node, value)
-            return self.dispatch_search()[key](node, value, _search)
-
-        return _search(self.root)
+        key = self._get_direction(node, value)
+        handlers = self.dispatch_insert()
+        return handlers[key](node, value)
 
     def _get_direction(self, node, value):
-        # Helper that decides which direction to go
-        if value == node.value:
-            return 'equal'
-        elif value < node.value:
+        if value < node.value:
             return 'left'
-        else:
+        elif value > node.value:
             return 'right'
+        else:
+            return 'none'
 
-    # Dispatch map for insert operation
     def dispatch_insert(self):
         return {
-            'equal': self._do_nothing_insert,  # Duplicate, do nothing
-            'left': self._insert_left,         # Insert in left subtree
-            'right': self._insert_right        # Insert in right subtree
+            'left': self.handle_left_insert,
+            'right': self.handle_right_insert,
+            'none': self.handle_duplicate_insert
         }
 
-    # Dispatch map for search operation
-    def dispatch_search(self):
-        return {
-            'equal': self._return_true,        # Value found
-            'left': self._search_left,         # Search left subtree
-            'right': self._search_right        # Search right subtree
-        }
-
-    # === Insert Handlers ===
-
-    def _do_nothing_insert(self, node, value, recurse):
-        # No duplicates allowed — return the node unchanged
+    def handle_left_insert(self, node, value):
+        node.left = self._insert(node.left, value)
         return node
 
-    def _insert_left(self, node, value, recurse):
-        # Recurse into the left child
-        node.left = recurse(node.left)
+    def handle_right_insert(self, node, value):
+        node.right = self._insert(node.right, value)
         return node
 
-    def _insert_right(self, node, value, recurse):
-        # Recurse into the right child
-        node.right = recurse(node.right)
+    def handle_duplicate_insert(self, node, value):
         return node
 
-    # === Search Handlers ===
+    def search(self, value):
+        return self._search(self.root, value)
 
-    def _return_true(self, node, value, recurse):
-        # Value matches — found!
-        return True
+    def _search(self, node, value):
+        if node is None:
+            return False
+        if node.value == value:
+            return True
+        if value < node.value:
+            return self._search(node.left, value)
+        else:
+            return self._search(node.right, value)
 
-    def _search_left(self, node, value, recurse):
-        # Continue search in the left subtree
-        return recurse(node.left)
+# -----------------------
+# ✅ Sample Test Cases
+# -----------------------
 
-    def _search_right(self, node, value, recurse):
-        # Continue search in the right subtree
-        return recurse(node.right)
+if __name__ == "__main__":
+    bst = BinarySearchTree()
 
-    # === Optional: Preorder Traversal ===
+    print("Inserting values: 1, 2, 3, 4, 5, 6, 7")
+    for v in [1, 2, 3, 4, 5, 6, 7, 8]:
+        bst.insert(v)
 
-    def preorder(self):
-        # Print the tree in preorder: root → left → right
-        def _preorder(node):
-            if node:
-                print(node.value, end=' ')
-                _preorder(node.left)
-                _preorder(node.right)
-        _preorder(self.root)
-        print()
+    print("\nSearch for existing values:")
+    for v in [0, 1, 5]:
+        print(f"search({v}) → {bst.search(v)}")
+
+    print("\nSearch for non-existing values:")
+    for v in [10, 5, 100]:
+        print(f"search({v}) → {bst.search(v)}")
+
+    print("\nDirect external call to _insert (should trigger warning):")
+    bst._insert(None, 9)
